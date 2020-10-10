@@ -156,6 +156,14 @@ def subval(model, criterion, dataloader):
     for i in range(NUM_CLASSES):
         print(f'class_{i} IoU:{IoU[i]}, acc: {accuracy[i]}')
         
+
+def train_seg():
+    pass
+
+def train_decision():
+    pass
+
+
 def train():
     model = dlasdd.SDASDD(NUM_CLASSES)
     reepoch = 0
@@ -185,4 +193,7 @@ def train():
 
 
 if __name__ == '__main__':
-    train()
+    #train seg network
+    train_seg()
+    #train decision network
+    train_decision()

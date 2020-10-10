@@ -115,7 +115,7 @@ if __name__ == '__main__':
     mdl = SDASDD()
     
     with torch.no_grad():
-        x = torch.randn(1,1,512,512)
+        x = torch.randn(1,1,1408,512)
         out = mdl(x)
         start = time.time()
         for i in range(5):
