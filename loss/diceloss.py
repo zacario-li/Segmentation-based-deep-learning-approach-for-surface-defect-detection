@@ -10,6 +10,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
+DEVICE = 'cuda:1' if torch.cuda.is_available() else 'cpu' 
 
 def make_one_hot(input, num_classes):
     """Convert class index tensor to one hot encoding tensor.
@@ -24,7 +25,7 @@ def make_one_hot(input, num_classes):
     shape = tuple(shape)
     result = torch.zeros(shape)
     result = result.scatter_(1, input.cpu(), 1)
-
+    result = result.to(DEVICE)
     return result
 
 
@@ -88,8 +89,7 @@ class DiceLoss(nn.Module):
     def forward(self, predict, target):
         #assert predict.shape == target.shape, 'predict & target shape do not match'
         if predict.shape != target.shape:
-            tempTarget = F.one_hot(target, predict.shape[1])
-            tempTarget = tempTarget.permute(0,3,1,2)
+            tempTarget = make_one_hot(target, predict.shape[1])
         dice = BinaryDiceLoss(**self.kwargs)
         total_loss = 0
         predict = F.softmax(predict, dim=1)

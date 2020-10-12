@@ -36,13 +36,13 @@ class ToTensor(object):
             raise (RuntimeError("segtransform.ToTensor() only handle np.ndarray with 3 dims or 2 dims.\n"))
         if len(image.shape) == 2:
             image = np.expand_dims(image, axis=2)
-        #if not len(label.shape) == 2:
-            #raise (RuntimeError("segtransform.ToTensor() only handle np.ndarray labellabel with 2 dims.\n"))
+        if len(label.shape) == 2:
+            label = np.expand_dims(label, axis=2)
 
         image = torch.from_numpy(image.transpose((2, 0, 1)))
         if not isinstance(image, torch.FloatTensor):
             image = image.float()
-        label = torch.from_numpy(label)
+        label = torch.from_numpy(label.transpose((2, 0, 1)))
         if not isinstance(label, torch.LongTensor):
             label = label.long()
         return image, label

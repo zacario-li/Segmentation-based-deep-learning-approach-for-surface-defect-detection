@@ -72,10 +72,11 @@ class SemData(Dataset):
     def __getitem__(self, index):
         image_path, label_path = self.data_list[index]
         image = cv2.imread(image_path)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         image = np.float32(image)
         
-        label = np.array(Image.open(label_path))# GRAY 1 channel ndarray with shape H * W
+        label = Image.open(label_path)
+        label = np.array(label)# GRAY 1 channel ndarray with shape H * W
         #print(f'{label_path}, {np.unique(label)}')
         if image.shape[0] != label.shape[0] or image.shape[1] != label.shape[1]:
             raise (RuntimeError("Image & label shape mismatch: " + image_path + " " + label_path + "\n"))
