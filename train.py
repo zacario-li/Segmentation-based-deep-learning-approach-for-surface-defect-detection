@@ -31,7 +31,7 @@ TRAINLIST = 'train.txt'
 VALLIST = 'val.txt'
 GLOBALEPOCH = 1000
 BASELR = 0.01
-INPUTHW = [1258, 500]
+INPUTHW = (1408, 512)
 RESUMEPATH = None
 
 def poly_learning_rate(base_lr, curr_iter, max_iter, power=0.9):
@@ -66,7 +66,7 @@ def get_mean_std():
 def prepare_dataset(rootpath, trainlist, vallist, mean, std):
     # train transform template
     trans = transform.Compose([
-        transform.Resize((1408,512)),
+        transform.Resize(INPUTHW),
         transform.RandomGaussianBlur(),
         transform.RandomHorizontalFlip(),
         transform.ToTensor(),
@@ -75,7 +75,7 @@ def prepare_dataset(rootpath, trainlist, vallist, mean, std):
 
     # val transform template
     valtrans = transform.Compose([
-        transform.Resize((1408,512)),
+        transform.Resize(INPUTHW),
         transform.ToTensor(),
         transform.Normalize(mean=mean, std=std)
     ])
@@ -141,15 +141,16 @@ def sub_sn_val(model, criterion, dataloader):
     lossmeter = common.AverageMeter()
 
     for i, (x,y) in enumerate(dataloader):
-        x = x.cuda(non_blocking=True)
-        y = y.cuda(non_blocking=True)
+        x = x.to(DEVICE, non_blocking=True)
+        y = y.to(DEVICE, non_blocking=True)
 
         out = model(x)
+        out[1] = nn.Upsample(scale_factor=8, mode='bilinear')(out[1])
         mainloss = criterion(out[1], y)
 
         lossmeter.update(mainloss.item(), x.shape[0])
         result = out[1].max(1)[1]
-        intersection, union, target = common.intersectionAndUnionGPU(result, y, NUM_CLASSES, 255)
+        intersection, union, target = common.intersectionAndUnionGPU(result, torch.squeeze(y), NUM_CLASSES, 255)
         intersection, union, target = intersection.cpu().numpy(), union.cpu().numpy(), target.cpu().numpy()
         intersectionmeter.update(intersection), unionmeter.update(union), targetmeter.update(target)
     
@@ -176,7 +177,7 @@ def train_seg():
     for epoch in range(0, GLOBALEPOCH):
         sub_sn_train(snmodel, optimizer, criterion, train_loader, epoch, maxIter)
         sub_sn_val(snmodel, criterion, val_loader)
-        if ((epoch % 10)) == 0:
+        if ((epoch % 50)) == 0:
             filename = f'save/train_sn_{epoch}.pth'
             torch.save({'epoch':epoch, 'state_dict':snmodel.state_dict(), 'optimizer':optimizer.state_dict()}, filename)
 
