@@ -88,6 +88,8 @@ class DiceLoss(nn.Module):
 
     def forward(self, predict, target):
         #assert predict.shape == target.shape, 'predict & target shape do not match'
+        # some label(kos20/Part4_label.bmp) has label 2, we need to clamp it to 1
+        target = target.clamp(0,1)
         if predict.shape != target.shape:
             tempTarget = make_one_hot(target, predict.shape[1])
         dice = BinaryDiceLoss(**self.kwargs)
