@@ -31,7 +31,8 @@ TRAINLIST = 'train.txt'
 VALLIST = 'val.txt'
 GLOBALEPOCH = 1000
 BASELR = 0.01
-INPUTHW = (1408, 512)
+# due to the limitation of a GPU's memory, we use 50% scale of the input image
+INPUTHW = (int(1408/2), int(512/2))
 RESUMEPATH = None
 
 def poly_learning_rate(base_lr, curr_iter, max_iter, power=0.9):
