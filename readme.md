@@ -27,7 +27,8 @@
 - [x] Forward finished
 - [x] Segmentation Net Training & Validate functions
 - [ ] Decision Net Training & Validate functions
-- [ ] resume training script
+- [x] resume segmentation net training script
+- [ ] resume decision net training script
 - [ ] Tensorboard record
 - [ ] Model fuse
 - [ ] ONNX format
