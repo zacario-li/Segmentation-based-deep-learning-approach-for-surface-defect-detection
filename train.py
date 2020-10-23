@@ -24,15 +24,15 @@ from dataset import data
 from utils import transform, common
 
 # global config
-DEVICE = 'cuda:1' if torch.cuda.is_available() else 'cpu' 
+DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu' 
 NUM_CLASSES = 2
 DATAROOT = '../datasets/KolektorSDD/'
 TRAINLIST = 'train.txt'
 VALLIST = 'val.txt'
-GLOBALEPOCH = 1000
+GLOBALEPOCH = 4000
 BASELR = 0.01
-INPUTHW = (1408, 512)
-RESUMEPATH = None
+INPUTHW = (int(1408/2), int(512/2))
+SEGRESUME = 'save/train_sn_3250.pth'
 
 def poly_learning_rate(base_lr, curr_iter, max_iter, power=0.9):
     """poly learning rate policy"""
@@ -83,18 +83,18 @@ def prepare_dataset(rootpath, trainlist, vallist, mean, std):
     # training data
     train_dataset = data.SemData(split='train', data_root=rootpath, data_list=trainlist, transform=trans)
     train_dataloader = torch.utils.data.DataLoader(train_dataset,
-                                                    batch_size=2,
+                                                    batch_size=24,
                                                     shuffle=True,
-                                                    num_workers=1,
+                                                    num_workers=8,
                                                     pin_memory=True,
                                                     drop_last=True)
 
     # val data
     val_dataset = data.SemData(split='val', data_root=rootpath, data_list=vallist, transform=valtrans)
     val_dataloader = torch.utils.data.DataLoader(val_dataset,
-                                                    batch_size=2,
+                                                    batch_size=8,
                                                     shuffle=False,
-                                                    num_workers=2,
+                                                    num_workers=4,
                                                     pin_memory=True)
     
     return train_dataloader, val_dataloader
@@ -112,6 +112,7 @@ def sub_sn_train(model, optimizer, criterion, dataloader, currentepoch, maxIter)
 
         out = model(x)
         out[1] = nn.Upsample(scale_factor=8, mode='bilinear')(out[1])
+
         loss = criterion(out[1], y)
         lossmeter.update(loss.item(), x.shape[0])
 
@@ -146,6 +147,7 @@ def sub_sn_val(model, criterion, dataloader):
 
         out = model(x)
         out[1] = nn.Upsample(scale_factor=8, mode='bilinear')(out[1])
+
         mainloss = criterion(out[1], y)
 
         lossmeter.update(mainloss.item(), x.shape[0])
@@ -153,6 +155,11 @@ def sub_sn_val(model, criterion, dataloader):
         intersection, union, target = common.intersectionAndUnionGPU(result, torch.squeeze(y), NUM_CLASSES, 255)
         intersection, union, target = intersection.cpu().numpy(), union.cpu().numpy(), target.cpu().numpy()
         intersectionmeter.update(intersection), unionmeter.update(union), targetmeter.update(target)
+        # save for debug
+        rt = result*128
+        rt = rt.to(torch.uint8)
+        rt = rt.cpu().numpy()
+        cv2.imwrite('segout.jpg',rt[0])
     
     #IoU
     IoU = intersectionmeter.sum/(unionmeter.sum + 1e-10)
@@ -164,53 +171,40 @@ def sub_sn_val(model, criterion, dataloader):
 
 def train_seg():
     snmodel = dlasdd.SegNetwork(1,1024,NUM_CLASSES)
-    weights_init(snmodel)
+    EPOCH_START =0
+    if SEGRESUME is None:
+        weights_init(snmodel)
+    else:
+        wt = torch.load(SEGRESUME)
+        snmodel.load_state_dict(wt['state_dict'])
+        EPOCH_START = wt['epoch']
+    if EPOCH_START>= GLOBALEPOCH:
+        print(f"current ckpt's epoch[{EPOCH_START}] is smaller and equal than globalepoch[{GLOBALEPOCH}]")
+        print(f'stop training...')
+        return
     snmodel.to(DEVICE)
     mean, std = get_mean_std()
     train_loader, val_loader = prepare_dataset(DATAROOT, TRAINLIST, VALLIST, mean, std)
 
     criterion = diceloss.DiceLoss()
+    '''
+    wt = torch.tensor([0.1, 10000000])
+    wt = wt.to(DEVICE)
+    criterion = nn.CrossEntropyLoss(weight=wt)
+    '''
     optimizer = torch.optim.SGD(snmodel.parameters(), lr=BASELR, momentum=0.9, weight_decay=0.0001)
 
     maxIter = GLOBALEPOCH * len(train_loader)
     # starting traing
-    for epoch in range(0, GLOBALEPOCH):
+    for epoch in range(EPOCH_START, GLOBALEPOCH):
         sub_sn_train(snmodel, optimizer, criterion, train_loader, epoch, maxIter)
         sub_sn_val(snmodel, criterion, val_loader)
-        if ((epoch % 50)) == 0:
+        if (((epoch+1) % 50)) == 0:
             filename = f'save/train_sn_{epoch}.pth'
             torch.save({'epoch':epoch, 'state_dict':snmodel.state_dict(), 'optimizer':optimizer.state_dict()}, filename)
 
 def train_decision():
     pass
-
-
-def train():
-    model = dlasdd.SDASDD(NUM_CLASSES)
-    reepoch = 0
-    if RESUMEPATH is not None:
-        wt = torch.load(RESUMEPATH)
-        model.load_state_dict(wt['state_dict'])
-        reepoch = wt['epoch']
-    model.cuda()
-    if RESUMEPATH is not None:
-        pass
-    else:
-        weights_init(model)
-    mean, std = get_mean_std()
-
-    criterion = diceloss.DiceLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=BASELR, momentum=0.9, weight_decay=0.0001)
-    train_loader, val_loader = prepare_dataset(DATAROOT, TRAINLIST, VALLIST, mean, std)
-
-    maxIter = GLOBALEPOCH * len(train_loader)
-    # starting traing
-    for epoch in range(reepoch, GLOBALEPOCH):
-        sub_sn_train(model, optimizer, criterion, train_loader, epoch, maxIter)
-        sub_sn_val(model, criterion, val_loader)
-        if ((epoch % 10)) == 0:
-            filename = f'save/train_{epoch}.pth'
-            torch.save({'epoch':epoch, 'state_dict':model.state_dict(), 'optimizer':optimizer.state_dict()}, filename)
 
 
 if __name__ == '__main__':

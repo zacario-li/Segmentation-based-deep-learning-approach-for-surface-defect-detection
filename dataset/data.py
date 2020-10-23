@@ -71,8 +71,8 @@ class SemData(Dataset):
 
     def __getitem__(self, index):
         image_path, label_path = self.data_list[index]
-        image = cv2.imread(image_path)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        image = cv2.imread(image_path,0)
+        #image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         image = np.float32(image)
         
         label = Image.open(label_path)
@@ -82,4 +82,7 @@ class SemData(Dataset):
             raise (RuntimeError("Image & label shape mismatch: " + image_path + " " + label_path + "\n"))
         if self.transform is not None:
             image, label = self.transform(image, label)
+        # some label(kos20/Part4_label.bmp) has label 2, we need to clamp it to 1
+        if label.max().cpu().item() >1:
+            label = label.clamp(0,1)
         return image, label
