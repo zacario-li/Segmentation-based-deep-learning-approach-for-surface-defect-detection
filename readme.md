@@ -23,6 +23,9 @@
     GLOBALEPOCH
     INPUTHW
     2. python train.py
+## pre-trained model(google drive)
+   1. [pre-trained segment net](https://drive.google.com/file/d/114hJy6id0KeqowsYOfoLPkt-jcRDxic5/view?usp=sharing) 
+   2. [pre-trained decision net]()
 ## TODO
 - [x] Forward finished
 - [x] Segmentation Net Training & Validate functions
